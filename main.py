@@ -3,10 +3,10 @@ import os
 import requests
 import uvicorn
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from services.whapi_client import WhapiClient
-from services.supabase_service import (
+from db.db_manager import (
     SupabaseService,
     DatabaseOperationError,
     StorageOperationError,
@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Orbyte GreenReady Webhook Orchestrator")
 
+
+@app.get("/", include_in_schema=False)
+async def index():
+    return {"status": "online", "message": "GreenReady API is active"}
+
 # Initialize shared singleton services
 whapi_token = os.getenv("WHAPI_TOKEN", "")
 whapi_client = WhapiClient(api_token=whapi_token)
@@ -29,7 +34,7 @@ def send_whatsapp_message(to_number: str, body_text: str) -> bool:
     """
     Sends an outbound text response to the SME owner via Whapi.cloud.
     """
-    url = "https://panel.whapi.cloud/messages/text"
+    url = "https://gate.whapi.cloud/messages/text"
     headers = {
         "Authorization": f"Bearer {whapi_client.token}",
         "Content-Type": "application/json",
@@ -47,6 +52,7 @@ def send_whatsapp_message(to_number: str, body_text: str) -> bool:
 
 
 @app.post("/webhook/whapi")
+@app.post("/webhook/whapi/")
 async def whapi_webhook(request: Request):
     """
     Main webhook entry point.
@@ -186,6 +192,7 @@ async def whapi_webhook(request: Request):
         # Node 1 (extract_data) can now read the document via standard HTTP
         initial_state = {
             "sme_id": sme_id,
+            "document_id": doc_id,
             "document_url": public_url,
             "filename": downloaded_doc.filename,
             "human_approved": False,
@@ -217,3 +224,4 @@ async def whapi_webhook(request: Request):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

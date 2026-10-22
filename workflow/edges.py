@@ -11,10 +11,10 @@ def route_approval(state: GraphState) -> str:
     if state.get("human_approved"): # approved
         return "publish_to_marketplace"
 
-    if state.state.get("human_approved") == "REJECTED":
+    if state.get("human_approved") == "REJECTED":
         pass
 
-    if state.state.get("human_approved") == "NEEDS_MANUAL_REVIEW":
+    if state.get("human_approved") == "NEEDS_MANUAL_REVIEW":
         pass
 
     return END

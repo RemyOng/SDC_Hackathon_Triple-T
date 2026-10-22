@@ -5,6 +5,7 @@ from typing_extensions import TypedDict
 class GraphState(TypedDict):
     """The shared memory payload moving between graph nodes."""
     sme_id: str
+    document_id: str
     document_url: str
     filename: str
 
