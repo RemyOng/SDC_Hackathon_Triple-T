@@ -17,6 +17,13 @@ def node_extract_data(state: GraphState) -> Dict[str, Any]:
     base64_images = fetch_and_convert_to_base64(state["document_url"], state["filename"])
     extracted_doc: ExtractedDocument = runpod.extract_document_metrics(base64_images)
 
+    supabase.update_document_results(
+        document_id=state["document_id"],
+        extracted_json=extracted_doc.model_dump(),
+        doc_type=extracted_doc.document_type,
+        status="COMPLETED"
+    )
+
     supabase.log_audit_event(
         sme_id=state["sme_id"],
         action_type="VLM_EXTRACTION_COMPLETED"

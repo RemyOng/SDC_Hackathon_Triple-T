@@ -34,7 +34,7 @@ def build_graph():
         }
     )
 
-    # 4. Final step
+    # Final step
     workflow.add_edge("publish_to_marketplace", END)
 
     # Compile with memory so state survives the webhook sleep cycle

@@ -53,11 +53,12 @@ class RunPodVLMClient:
     def extract_document_metrics(self, base64_images: List[str]) -> ExtractedDocument:
         """
         Sends base64 images to Qwen2-VL and validates the returned JSON.
+        Handles dynamic worker templates (lists vs dicts).
         """
         if not base64_images:
             raise ValueError("No images provided for extraction.")
 
-        # Construct multimodal prompt for Qwen2-VL (OpenAI-compatible format often used by vLLM)
+        # Construct multimodal prompt for Qwen2-VL
         content = [{"type": "text", "text": self.system_prompt}]
         for b64_img in base64_images:
             content.append({
@@ -84,13 +85,38 @@ class RunPodVLMClient:
             response.raise_for_status()
 
             result_data = response.json()
+            result_data = response.json()
 
-            # RunPod wraps outputs based on the specific worker template (e.g., vLLM vs native)
-            # Assuming a standard vLLM OpenAI wrapper structure inside the 'output' key:
-            raw_output = result_data.get("output", {}).get("choices", [{}])[0].get("message", {}).get("content", "")
+            # --- DEFENSIVE OUTPUT PARSING ---
+            try:
+                output_data = result_data.get("output")
+                raw_output = ""
 
-            if not raw_output:
-                raise RunPodError(f"Unexpected empty response from model. Full payload: {result_data}")
+                if isinstance(output_data, str):
+                    raw_output = output_data
+                elif isinstance(output_data, list) and len(output_data) > 0:
+                    first_item = output_data[0]
+                    if isinstance(first_item, str):
+                        raw_output = first_item
+                    elif isinstance(first_item, dict):
+                        choices = first_item.get("choices", [])
+                        if choices and isinstance(choices, list) and len(choices) > 0:
+                            raw_output = choices[0].get("message", {}).get("content", "")
+                        else:
+                            raw_output = first_item.get("text", "") or first_item.get("message", {}).get("content", "")
+                elif isinstance(output_data, dict):
+                    choices = output_data.get("choices", [])
+                    if choices and isinstance(choices, list) and len(choices) > 0:
+                        raw_output = choices[0].get("message", {}).get("content", "")
+                    else:
+                        raw_output = output_data.get("text", "")
+
+                if not raw_output:
+                    raise ValueError("Traversal succeeded but resulted in an empty string.")
+
+            except Exception as parse_exc:
+                logger.error("RunPod JSON structure violation! Failed to parse payload: %s", result_data)
+                raise RunPodError(f"Failed to extract text from RunPod response: {parse_exc}") from parse_exc
 
             return self._parse_and_validate(raw_output)
 
@@ -100,6 +126,9 @@ class RunPodVLMClient:
         except requests.exceptions.RequestException as exc:
             logger.error("RunPod network error: %s", exc)
             raise RunPodError(f"Network error: {exc}") from exc
+
+
+
 
     def _parse_and_validate(self, raw_text: str) -> ExtractedDocument:
         """Strips markdown and validates against the Pydantic schema."""
