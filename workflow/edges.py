@@ -1,8 +1,8 @@
 from langgraph.graph import END
-from workflow.state import GreenReadyState
+from workflow.state import GraphState
 
 
-def route_approval(state: GreenReadyState) -> str:
+def route_approval(state: GraphState) -> str:
     """
     Checks if the SME owner replied YES on WhatsApp.
     If yes, routes to marketplace. If no/pending, halts the graph.

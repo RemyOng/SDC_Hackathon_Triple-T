@@ -12,7 +12,7 @@ from workflow.edges import route_approval
 
 def build_graph():
     """Constructs and compiles the orchestrator."""
-    workflow = StateGraph(GreenReadyState)
+    workflow = StateGraph(GraphState)
 
     # Add Nodes
     workflow.add_node("extract_data", node_extract_data)
