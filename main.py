@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from services.whapi_client import WhapiClient
-from services.supabase_service import (
+from db.db_manager import (
     SupabaseService,
     DatabaseOperationError,
     StorageOperationError,
