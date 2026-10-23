@@ -2,8 +2,14 @@ import logging
 import os
 import requests
 import uvicorn
+import asyncio
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
+
+load_dotenv(Path(__file__).resolve().with_name(".env"))
 
 from services.whapi_client import WhapiClient
 from db.db_manager import (
@@ -12,12 +18,30 @@ from db.db_manager import (
     StorageOperationError,
 )
 from workflow.graph import greenready_graph
+from gmail_reader.api import poller as gmail_poller
 
 # Configure structured logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Orbyte GreenReady Webhook Orchestrator")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    gmail_poller.task = asyncio.create_task(gmail_poller.run())
+    try:
+        yield
+    finally:
+        if gmail_poller.task:
+            gmail_poller.task.cancel()
+            try:
+                await gmail_poller.task
+            except asyncio.CancelledError:
+                pass
+
+
+app = FastAPI(
+    title="Orbyte GreenReady Webhook Orchestrator",
+    lifespan=lifespan,
+)
 
 
 @app.get("/", include_in_schema=False)
@@ -224,4 +248,3 @@ async def whapi_webhook(request: Request):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
