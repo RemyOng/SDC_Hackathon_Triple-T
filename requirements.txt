@@ -3,3 +3,6 @@ google-auth-oauthlib
 langgraph
 fastapi
 uvicorn
+supabase
+PyMuPDF
+python-dotenv

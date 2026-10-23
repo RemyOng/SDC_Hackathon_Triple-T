@@ -1,8 +1,8 @@
 # SDC Hackathon Triple-T
 
-This project reads upcoming Gmail messages through the Gmail API, validates
-their attachments/content through LangGraph, and exposes the result through
-FastAPI.
+This project ingests WhatsApp documents and upcoming Gmail messages in
+parallel, stores both sources in Supabase, validates Gmail attachments/content
+through LangGraph, and exposes the WhatsApp workflow through FastAPI.
 
 ## Setup
 
@@ -15,16 +15,21 @@ FastAPI.
    python -m pip install -r requirements.txt
    ```
 
-4. Run the FastAPI reader:
+4. Run the combined WhatsApp and Gmail service:
 
    ```powershell
-   python run_gmail_reader.py
+   python main.py
    ```
 
-   The API is available at `http://localhost:8000`. It polls Gmail every
-   10 seconds. Each check is printed in the terminal. When new mail arrives,
-   its extracted content and validation result are printed as JSON. Use
-   `GET /emails`, `POST /check-now`, or `GET /docs`.
+   The API is available at `http://localhost:8000`. The WhatsApp webhook
+   remains at `/webhook/whapi`, while Gmail is polled every 10 seconds in a
+   background task. Gmail attachments are uploaded to the `raw_documents`
+   Supabase bucket and registered in `ingested_documents` with
+   `source_channel = GMAIL`.
+
+   To run only the Gmail reader instead, use `python run_gmail_reader.py`.
+   Its API is available at `http://localhost:8000`; use `GET /emails`,
+   `POST /check-now`, or `GET /docs`.
 
 The first run opens a browser for Gmail authorization and stores the refresh
 token in `token.json`. Set `GMAIL_QUERY` and `GMAIL_MAX_RESULTS` to customize
@@ -44,4 +49,6 @@ which runs:
 
 The poller records Gmail message IDs in `processed_email_ids.json`, primes
 itself with existing messages on startup, and only processes messages that
-arrive after the service starts.
+arrive after the service starts. Each new message is persisted using the same
+SME, storage, document, and audit-log tables as WhatsApp, keyed by the sender's
+email address.
