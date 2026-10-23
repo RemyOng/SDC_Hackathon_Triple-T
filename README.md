@@ -51,4 +51,7 @@ The poller records Gmail message IDs in `processed_email_ids.json`, primes
 itself with existing messages on startup, and only processes messages that
 arrive after the service starts. Each new message is persisted using the same
 SME, storage, document, and audit-log tables as WhatsApp, keyed by the sender's
-email address.
+email address. Validated TNB attachments use the same RunPod extraction shape as
+WhatsApp (`document_type`, `account_number`, `company_name`, `baseline_kwh`,
+`target_capex_myr`, and `equipment_type`); spam messages are stored with
+`document_type = SPAM`.
