@@ -13,7 +13,7 @@ from supabase import Client, create_client
 logger = logging.getLogger(__name__)
 
 ChannelType = Literal["WHATSAPP", "GMAIL"]
-DocType = Literal["TNB_BILL", "VENDOR_QUOTE", "UNKNOWN"]
+DocType = Literal["TNB_BILL", "VENDOR_QUOTE", "SPAM", "UNKNOWN"]
 DocStatus = Literal["PROCESSING", "COMPLETED", "FAILED", "NEEDS_HUMAN"]
 ActorRole = Literal["SYSTEM", "SME_OWNER", "STAFF"]
 

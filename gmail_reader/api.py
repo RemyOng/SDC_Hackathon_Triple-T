@@ -8,10 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from .client import configured_service, list_messages
 from .reader import read_gmail_messages
+from .persistence import persist_gmail_message
 from workflow.validation_subgraph import build_validation_subgraph
 
 POLL_SECONDS = 10
@@ -65,7 +69,17 @@ class GmailPoller:
         messages = []
         for message in fetched_messages:
             result = await self.validation_graph.ainvoke({"email": message})
-            messages.append({**message, "validation": result["validation"]})
+            validation = result["validation"]
+            document_ids = await asyncio.to_thread(
+                persist_gmail_message,
+                message,
+                validation,
+            )
+            messages.append({
+                **message,
+                "validation": validation,
+                "document_ids": document_ids,
+            })
         self.processed_ids.update(item["id"] for item in new_refs)
         self._save_processed_ids()
         self.latest_messages = messages
