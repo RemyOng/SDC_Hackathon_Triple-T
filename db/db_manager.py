@@ -49,11 +49,6 @@ class SupabaseService:
 
     def __init__(self, url: Optional[str] = None, key: Optional[str] = None):
         self.url = url or os.getenv("SUPABASE_URL", "")
-        # self.key = (
-        #     key
-        #     or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        #     or os.getenv("SUPABASE_KEY", "")
-        # )
 
         self.key = (
                 key
