@@ -17,9 +17,6 @@ class ParseError(Exception):
     """Raised when the LLM hallucinates outside the requested JSON schema."""
 
 
-# =============================================================================
-# SERVICE IMPLEMENTATION
-# =============================================================================
 class RunPodVLMClient:
     """
     Dedicated client for Qwen2-VL on RunPod Serverless.
@@ -41,13 +38,19 @@ class RunPodVLMClient:
         }
 
         self.system_prompt = (
-            "You are a strict data extraction AI. Read the provided document images "
-            "and extract the required fields. You must output ONLY raw, valid JSON. "
-            "Do not include markdown blocks, greetings, or explanations. "
-            "Schema format: {\"document_type\": \"TNB_BILL\"|\"VENDOR_QUOTE\", "
-            "\"account_number\": string|null, \"company_name\": string|null, "
-            "\"baseline_kwh\": float|null, \"target_capex_myr\": float|null, "
-            "\"equipment_type\": string|null}"
+            "You are a strict data extraction AI processing Malaysian TNB electricity bills. "
+            "Output ONLY valid JSON matching the exact schema requested. Do not include markdown blocks like ```json. "
+            "Map the fields as follows based on the document text: "
+            "billing_period = 'Tempoh Bil', bill_date = 'TARIKH BIL', tariff = 'TARIF', "
+            "reading_type = 'JENIS BACAAN', current_month_usage_kwh = 'Jumlah Penggunaan Anda (kWh)', "
+            "average_usage_kwh = 'Purata Penggunaan Anda', history_6_months_kwh = extract the 6 monthly kWh values as a list of floats from 'Penggunaan (kWh)', "
+            "meter_reading_previous = 'Bacaan Meter Dahulu' (kWh row), meter_reading_current = 'Semasa' (kWh row), "
+            "peak_demand_kw = 'Penggunaan (kW)' row value, reactive_power_kvarh = 'Penggunaan (kVARh)' row value, "
+            "energy_charge_myr = 'Caj Penjanaan', capacity_charge_myr = 'Kapasiti', "
+            "network_charge_myr = 'Caj Rangkaian', afa_charge_myr = 'AFA', retail_charge_myr = 'Caj Peruncitan', "
+            "ee_incentive_myr = 'Insentif Cekap Tenaga', service_tax_myr = 'Cukai Perkhidmatan', "
+            "kwtbb_myr = 'KWTBB', current_charges_myr = 'Caj Semasa', total_payable_myr = 'Jumlah Bil Anda'. "
+            "Remove all 'RM' symbols and commas from numbers. Return null if a field is not found."
         )
 
     def extract_document_metrics(self, base64_images: List[str]) -> ExtractedDocument:
@@ -128,10 +131,9 @@ class RunPodVLMClient:
             raise RunPodError(f"Network error: {exc}") from exc
 
 
-
-
     def _parse_and_validate(self, raw_text: str) -> ExtractedDocument:
         """Strips markdown and validates against the Pydantic schema."""
+
         clean_text = raw_text.strip()
         # Handle models that ignore instructions and wrap in ```json
         if clean_text.startswith("```json"):
