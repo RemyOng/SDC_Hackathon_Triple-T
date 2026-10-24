@@ -6,3 +6,5 @@ uvicorn
 supabase
 PyMuPDF
 python-dotenv
+httpx
+python-multipart
