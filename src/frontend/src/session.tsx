@@ -93,5 +93,6 @@ export function useApi<T>(path: string | null) {
     };
   }, [path, call, version, tick]);
 
-  return { data, error, loading, reload: () => setTick((value) => value + 1) };
+  const reload = useCallback(() => setTick((value) => value + 1), []);
+  return { data, error, loading, reload };
 }

@@ -22,6 +22,7 @@ LOW_BALANCE_MYR = 4.0
 _ROLE_MENUS = {
     "sme_owner": [
         ("Bills", "tabler-receipt", "/sme/bills"),
+        ("Ingestion inbox", "tabler-inbox", "/sme/ingestion"),
         ("My listing", "tabler-layout-board", "/sme/listing"),
         ("Requests", "tabler-inbox", "/sme/requests"),
         ("Activity", "tabler-history", "/sme/activity"),
@@ -29,6 +30,7 @@ _ROLE_MENUS = {
     ],
     "sme_staff": [
         ("Bills", "tabler-receipt", "/sme/bills"),
+        ("Ingestion inbox", "tabler-inbox", "/sme/ingestion"),
         ("My listing", "tabler-layout-board", "/sme/listing"),
         ("Requests", "tabler-inbox", "/sme/requests"),
         ("Activity", "tabler-history", "/sme/activity"),

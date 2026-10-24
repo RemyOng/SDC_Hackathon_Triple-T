@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from db.db_manager import SupabaseService
-from services.document_processor import process_bytes_to_base64
+from services.document_processor import extract_document_text, process_bytes_to_base64
 from services.runpod_client import RunPodVLMClient
 from .models import GmailMessage
 
@@ -36,7 +36,8 @@ def _extracted_json(
         if runpod is None:
             raise ValueError("RunPod client is required for validated Gmail TNB bills.")
         extracted = runpod.extract_document_metrics(
-            process_bytes_to_base64(attachment["content"], attachment["filename"])
+            process_bytes_to_base64(attachment["content"], attachment["filename"]),
+            extract_document_text(attachment["content"], attachment["filename"]),
         ).model_dump()
         extracted["document_type"] = document_type
         return extracted
@@ -86,9 +87,17 @@ def persist_gmail_message(
         document_type = _document_type(validation, result)
         if document_type == "TNB_BILL":
             extractor = extractor or RunPodVLMClient()
+        extracted_json = _extracted_json(attachment, document_type, extractor)
+        extracted_json["_source"] = {
+            "channel": "GMAIL",
+            "message_id": message["message_id"],
+            "from_email": message["from_email"],
+            "subject": message["subject"],
+            "received_at": message["received_at"],
+        }
         service.update_document_results(
             document_id=document_id,
-            extracted_json=_extracted_json(attachment, document_type, extractor),
+            extracted_json=extracted_json,
             doc_type=document_type,
             status="NEEDS_HUMAN" if not result.get("content_legitimate", False) else "COMPLETED",
         )
@@ -101,6 +110,9 @@ def persist_gmail_message(
                 "message_id": message["message_id"],
                 "filename": attachment["filename"],
                 "storage_path": storage_path,
+                "from_email": message["from_email"],
+                "subject": message["subject"],
+                "received_at": message["received_at"],
             },
         )
         document_ids.append(document_id)

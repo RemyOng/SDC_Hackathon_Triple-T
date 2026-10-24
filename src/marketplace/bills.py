@@ -24,15 +24,16 @@ from marketplace.rules import (
     estimate_solar,
     suggested_solar_kwp,
 )
+from marketplace.tariffs import resolve_tariff
 if TYPE_CHECKING:  # the store seeds bills from this module, so import it for typing only
     from marketplace.store import BoardStore
 
 logger = logging.getLogger(__name__)
 
 # Tariff B component rates (P-table). Together they make P01 = RM0.5068/kWh.
-ENERGY_RATE = 0.3300
-CAPACITY_RATE = 0.0455
-NETWORK_RATE = 0.1313
+ENERGY_RATE = 0.2703
+CAPACITY_RATE = 0.0883
+NETWORK_RATE = 0.1482
 KWTBB_RATE = 0.016
 SERVICE_TAX_RATE = 0.08
 REBATE_CAP_SHARE = 0.05          # V05: a rebate is a credit of at most 5% of usage charges
@@ -53,6 +54,8 @@ FIELDS: List[tuple] = [
     ("meter_reading_previous", "Previous reading (kWh)", "number"),
     ("meter_reading_current", "Current reading (kWh)", "number"),
     ("current_month_usage_kwh", "Usage (kWh)", "number"),
+    ("peak_usage_kwh", "Peak usage (kWh)", "number"),
+    ("offpeak_usage_kwh", "Off-peak usage (kWh)", "number"),
     ("energy_charge_myr", "Energy charge (RM)", "number"),
     ("capacity_charge_myr", "Capacity charge (RM)", "number"),
     ("network_charge_myr", "Network charge (RM)", "number"),
@@ -67,7 +70,7 @@ FIELDS: List[tuple] = [
 ]
 FIELD_LABELS = {key: label for key, label, _ in FIELDS}
 NUMERIC = {key for key, _, kind in FIELDS if kind == "number"}
-REQUIRED = NUMERIC - {"previous_balance_myr"}
+REQUIRED = NUMERIC - {"previous_balance_myr", "peak_usage_kwh", "offpeak_usage_kwh"}
 
 CHARGE_ROWS = [
     ("energy_charge_myr", "Energy", "What it costs to generate the electricity you used."),
@@ -104,7 +107,7 @@ def _sample_fields(month: str, period: str, bill_date: str, due: str, prev_readi
 
 
 SAMPLE_SEP = _sample_fields("Sep 2026", "01.09.2026 – 30.09.2026", "03.10.2026", "10.11.2026",
-                            128_560, 4_420, afa=-203.31, rebate=-104.20, network=580.36)
+                            128_560, 4_420, afa=-203.31, rebate=-104.20)
 SAMPLE_AUG = _sample_fields("Aug 2026", "01.08.2026 – 31.08.2026", "03.09.2026", "10.10.2026",
                             124_950, 3_610, afa=-166.06, rebate=-85.10)
 HISTORY = {"Apr": 3520, "May": 3610, "Jun": 3480, "Jul": 3650, "Aug": 3610, "Sep": 4420}
@@ -182,18 +185,40 @@ def run_checks(values: Dict[str, Any]) -> List[Dict[str, Any]]:
     afa, retail, rebate = (_num(values, k) for k in ("afa_charge_myr", "retail_charge_myr", "ee_incentive_myr"))
     kwtbb, tax = _num(values, "kwtbb_myr"), _num(values, "service_tax_myr")
     subtotal_found = _num(values, "current_charges_myr") - kwtbb - tax
+    tariff = resolve_tariff(values.get("tariff"))
+    peak_kwh, offpeak_kwh = _num(values, "peak_usage_kwh"), _num(values, "offpeak_usage_kwh")
+    rate_kwh = peak_kwh + offpeak_kwh if tariff and tariff.tou and peak_kwh + offpeak_kwh else kwh
+    expected_energy = None
+    expected_capacity = None
+    expected_network = None
+    if tariff:
+        if tariff.tou and peak_kwh + offpeak_kwh:
+            expected_energy = peak_kwh * (tariff.energy_peak_rate or 0) + offpeak_kwh * (tariff.energy_offpeak_rate or 0)
+        elif tariff.energy_rate is not None:
+            expected_energy = rate_kwh * tariff.energy_rate
+        if tariff.capacity_rate is not None:
+            demand = _num(values, "peak_demand_kw")
+            expected_capacity = demand * tariff.capacity_rate if tariff.demand_based and demand else rate_kwh * tariff.capacity_rate
+        if tariff.network_rate is not None:
+            demand = _num(values, "peak_demand_kw")
+            expected_network = demand * tariff.network_rate if tariff.demand_based and demand else rate_kwh * tariff.network_rate
+    expected_energy = expected_energy if expected_energy is not None else energy
+    expected_capacity = expected_capacity if expected_capacity is not None else capacity
+    expected_network = expected_network if expected_network is not None else network
     subtotal_expected = energy + capacity + network + afa + retail + rebate
     usage_charges = energy + capacity + network
-    rebate_ok = rebate <= 0 and -rebate <= usage_charges * REBATE_CAP_SHARE + TOLERANCE_MYR
-    expected_total = subtotal_expected * (1 + KWTBB_RATE + SERVICE_TAX_RATE) + _num(values, "previous_balance_myr")
+    rebate_cap = (tariff.rebate_cap if tariff else REBATE_CAP_SHARE) or REBATE_CAP_SHARE
+    rebate_ok = rebate <= 0 and -rebate <= usage_charges * rebate_cap + TOLERANCE_MYR
+    expected_total = subtotal_expected * (1 + (tariff and KWTBB_RATE or KWTBB_RATE) + (tariff and SERVICE_TAX_RATE or SERVICE_TAX_RATE)) + _num(values, "previous_balance_myr")
+    tariff_note = tariff.name if tariff else "Tariff not recognised; bill arithmetic only"
     return [
         _check("V01", "Meter reading", _num(values, "meter_reading_current") - _num(values, "meter_reading_previous"),
                kwh, unit="kWh", tolerance=0.5),
-        _check("V02", "Energy charge", kwh * ENERGY_RATE, energy),
-        _check("V03", "Capacity charge", kwh * CAPACITY_RATE, capacity),
-        _check("V04", "Network charge", kwh * NETWORK_RATE, network),
-        {"rule": "V05", "label": "Rebate", "unit": "RM", "expected": round(-usage_charges * REBATE_CAP_SHARE, 2),
-         "found": round(rebate, 2), "passed": rebate_ok, "note": "A credit of at most 5% of usage charges"},
+        _check("V02", f"Energy charge ({tariff_note})", expected_energy, energy),
+        _check("V03", f"Capacity charge ({tariff_note})", expected_capacity, capacity),
+        _check("V04", f"Network charge ({tariff_note})", expected_network, network),
+        {"rule": "V05", "label": "Rebate", "unit": "RM", "expected": round(-usage_charges * rebate_cap, 2),
+         "found": round(rebate, 2), "passed": rebate_ok, "note": f"Allowed credit up to {rebate_cap:.0%} of usage charges"},
         _check("V06", "Usage subtotal", subtotal_expected, subtotal_found),
         _check("V07", "KWTBB 1.6%", subtotal_expected * KWTBB_RATE, kwtbb),
         _check("V08", "Total due (incl. 8% service tax)", expected_total, _num(values, "total_payable_myr"), tolerance=0.10),
@@ -235,14 +260,17 @@ def build_insights(values: Dict[str, Any], history: Dict[str, float]) -> Dict[st
 def _extract_with_runpod(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
     if not (os.getenv("RUNPOD_ENDPOINT_ID") and os.getenv("RUNPOD_API_KEY")):
         return None
-    from services.document_processor import process_bytes_to_base64
+    from services.document_processor import extract_document_text, process_bytes_to_base64
     from services.runpod_client import RunPodVLMClient
 
-    extracted = RunPodVLMClient().extract_document_metrics(process_bytes_to_base64(file_bytes, filename))
+    extracted = RunPodVLMClient().extract_document_metrics(
+        process_bytes_to_base64(file_bytes, filename),
+        extract_document_text(file_bytes, filename),
+    )
     data = extracted.model_dump()
-    data["total_payable_myr"] = data.get("total_payable_myr")
-    data["due_date"] = data.get("due_date")
-    data["previous_balance_myr"] = 0.0
+    # Keep values extracted from the bill; only provide the marketplace's
+    # derived aliases/defaults where the extraction schema has no equivalent.
+    data["previous_balance_myr"] = data.get("previous_balance_myr", 0.0)
     data["account_last4"] = (data.get("account_number") or "")[-4:] or None
     return data
 

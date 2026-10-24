@@ -11,7 +11,8 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
 
 from .client import configured_service, list_messages
 from .reader import read_gmail_messages
@@ -19,7 +20,13 @@ from .persistence import persist_gmail_message
 from workflow.validation_subgraph import build_validation_subgraph
 
 POLL_SECONDS = 10
-PROCESSED_FILE = Path(os.getenv("GMAIL_PROCESSED_FILE", "processed_email_ids.json"))
+PROCESSED_FILE = Path(
+    os.getenv("GMAIL_PROCESSED_FILE", str(PROJECT_ROOT / "src" / "processed_email_ids.json"))
+)
+if not PROCESSED_FILE.is_absolute():
+    PROCESSED_FILE = PROJECT_ROOT / PROCESSED_FILE
+if not PROCESSED_FILE.is_absolute():
+    PROCESSED_FILE = PROJECT_ROOT / PROCESSED_FILE
 
 
 class GmailPoller:

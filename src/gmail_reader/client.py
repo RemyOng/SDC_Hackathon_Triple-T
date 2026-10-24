@@ -16,6 +16,12 @@ from googleapiclient.discovery import Resource, build
 from .models import GmailAttachment, GmailMessage
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _project_path(value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 def _decode_base64(value: str) -> bytes:
@@ -50,8 +56,8 @@ def create_gmail_service(
     credentials_file: str | Path = "credentials.json",
     token_file: str | Path = "token.json",
 ) -> Resource:
-    credentials_path = Path(credentials_file)
-    token_path = Path(token_file)
+    credentials_path = _project_path(credentials_file)
+    token_path = _project_path(token_file)
     credentials: Credentials | None = None
     if token_path.exists():
         credentials = Credentials.from_authorized_user_file(str(token_path), SCOPES)

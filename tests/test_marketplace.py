@@ -12,6 +12,28 @@ def as_role(role):
 
 
 class RulesTest(unittest.TestCase):
+    def test_current_tnb_tariff_routes_to_low_voltage_rates(self):
+        checks = bills.run_checks({
+            "tariff": "Bukan Domestik Voltan Rendah Am",
+            "current_month_usage_kwh": 336,
+            "meter_reading_previous": 1000,
+            "meter_reading_current": 1336,
+            "energy_charge_myr": 336 * 0.2703,
+            "capacity_charge_myr": 336 * 0.0883,
+            "network_charge_myr": 336 * 0.1482,
+            "afa_charge_myr": 0,
+            "retail_charge_myr": 20,
+            "ee_incentive_myr": 0,
+            "kwtbb_myr": 0,
+            "service_tax_myr": 0,
+            "current_charges_myr": 0,
+            "total_payable_myr": 0,
+            "previous_balance_myr": 0,
+        })
+        self.assertEqual(checks[1]["expected"], 90.82)
+        self.assertEqual(checks[2]["expected"], 29.67)
+        self.assertEqual(checks[3]["expected"], 49.80)
+
     def test_solar_matches_spec_worked_example(self):
         solar = rules.estimate_solar(23.1, baseline_monthly_kwh=3715)
         self.assertAlmostEqual(solar.capex_myr, 46_000, delta=50)
@@ -179,7 +201,7 @@ class BoardFlowTest(unittest.TestCase):
         self.assertEqual(insights["spike_pct"]["value"], 19)
         self.assertTrue(insights["spike_pct"]["alert"])
         self.assertEqual(insights["real_cost_per_kwh"]["value"], 0.51)
-        self.assertEqual(sep["values"]["total_payable_myr"], 2140.0)
+        self.assertEqual(sep["values"]["total_payable_myr"], 2139.99)
 
     def test_upload_review_and_recommendations(self):
         staff = as_role("sme_staff")

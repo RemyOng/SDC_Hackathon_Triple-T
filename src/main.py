@@ -9,7 +9,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-load_dotenv(Path(__file__).resolve().with_name(".env"))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 from services.whapi_client import WhapiClient
 from db.db_manager import (
@@ -201,6 +202,7 @@ async def whapi_webhook(request: Request):
                     "document_id": doc_id,
                     "filename": downloaded_doc.filename,
                     "storage_path": storage_path,
+                    "sender_number": sender_number,
                 },
             )
 

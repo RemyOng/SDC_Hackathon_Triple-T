@@ -18,6 +18,7 @@ import {
   WalletPage,
 } from "./pages/Partners";
 import { SmeListingPage, SmeRequestsPage } from "./pages/Sme";
+import { IngestionPage } from "./pages/Ingestion";
 import { SessionProvider, useSession } from "./session";
 
 function Home() {
@@ -40,6 +41,7 @@ createRoot(document.getElementById("root")!).render(
           <Route element={<RequireSignIn />}>
             <Route index element={<Home />} />
             <Route path="sme/bills" element={<BillsPage />} />
+            <Route path="sme/ingestion" element={<IngestionPage />} />
             <Route path="sme/listing" element={<SmeListingPage />} />
             <Route path="sme/requests" element={<SmeRequestsPage />} />
             <Route path="sme/activity" element={<ActivityPage />} />

@@ -134,6 +134,12 @@ def list_bills(role: str = Depends(current_role)) -> Dict[str, Any]:
     }
 
 
+@router.get("/ingestion-feed")
+def ingestion_feed(role: str = Depends(current_role)) -> Dict[str, Any]:
+    _sme(role)
+    return {"documents": store.ingestion_feed(role)}
+
+
 @router.get("/bills/{bill_id}")
 def get_bill(bill_id: str, role: str = Depends(current_role)) -> Dict[str, Any]:
     _sme(role)
@@ -246,9 +252,10 @@ def get_criteria(role: str = Depends(current_role)) -> Dict[str, Any]:
 @router.put("/criteria")
 def put_criteria(body: CriteriaIn, role: str = Depends(current_role)) -> Dict[str, Any]:
     partner_id = _partner(role, {"investor"})
-    store.criteria[partner_id] = {key: value for key, value in body.model_dump().items() if value not in (None, "")}
+    values = {key: value for key, value in body.model_dump().items() if value not in (None, "")}
+    store.save_criteria(partner_id, values)
     store.log(role, "Saved My criteria", "Criteria")
-    return store.criteria[partner_id]
+    return values
 
 
 @router.get("/listings/{listing_id}")

@@ -74,3 +74,16 @@ def process_bytes_to_base64(file_bytes: bytes, filename: str) -> List[str]:
     except Exception as exc:
         logger.exception("Failed to process document payload for %s", filename)
         raise DocumentProcessingError(f"Processing failed: {exc}") from exc
+
+
+def extract_document_text(file_bytes: bytes, filename: str) -> str:
+    """Extract embedded text from PDFs to complement visual bill extraction."""
+    if not filename.lower().endswith(".pdf"):
+        return ""
+
+    try:
+        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+            return "\n".join(page.get_text() for page in doc).strip()
+    except Exception as exc:
+        logger.warning("Could not extract embedded text from %s: %s", filename, exc)
+        return ""
