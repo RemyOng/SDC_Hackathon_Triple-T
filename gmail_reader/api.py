@@ -29,7 +29,10 @@ class GmailPoller:
         self.latest_messages: list[dict[str, Any]] = []
         self.last_error: str | None = None
         self.task: asyncio.Task[None] | None = None
-        self.primed = bool(self.processed_ids)
+        # A startup poll establishes the inbox snapshot. Existing messages must
+        # not be treated as new merely because their IDs are absent from the
+        # persisted file.
+        self.primed = False
 
     def _load_processed_ids(self) -> set[str]:
         if not PROCESSED_FILE.exists():
@@ -57,6 +60,13 @@ class GmailPoller:
         new_refs = [item for item in message_refs if item["id"] not in self.processed_ids]
         if not new_refs:
             return []
+
+        # Claim the messages before any external processing. If RunPod,
+        # persistence, or validation fails, the next poll must not submit the
+        # same Gmail message again.
+        self.processed_ids.update(item["id"] for item in new_refs)
+        self._save_processed_ids()
+
         fetched_messages = await read_gmail_messages(
             os.getenv("GMAIL_QUERY", "in:anywhere"),
             int(os.getenv("GMAIL_MAX_RESULTS", "25")),
@@ -80,8 +90,6 @@ class GmailPoller:
                 "validation": validation,
                 "document_ids": document_ids,
             })
-        self.processed_ids.update(item["id"] for item in new_refs)
-        self._save_processed_ids()
         self.latest_messages = messages
         return messages
 
