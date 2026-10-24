@@ -35,6 +35,40 @@ The first run opens a browser for Gmail authorization and stores the refresh
 token in `token.json`. Set `GMAIL_QUERY` and `GMAIL_MAX_RESULTS` to customize
 which messages are read.
 
+## Opportunity Board (web app)
+
+The board, partner requests, investor EOI and supplier proposal run without
+Supabase, RunPod or Gmail credentials, on synthetic demo data (spec §7):
+
+```powershell
+cd frontend; npm install; npm run build; cd ..
+python run_board.py            # http://localhost:8001/app
+```
+
+`python main.py` also serves the board API and the built app at `/app`.
+For front-end development run `python run_board.py` and `npm run dev` in
+`frontend/` (Vite proxies `/api` to port 8001).
+
+Switch roles from the button in the top bar (Demo mode), or open a link
+such as `/app/investor/board?role=investor`. Roles: `sme_owner`, `sme_staff`,
+`investor` (Bank Hijau), `supplier` (Suria Hijau Solar), `ops` (Reset demo
+under Audit log).
+
+Demo path: Supplier → Send proposal on GR-L-0871 · Investor → Request to
+connect · Owner → Requests → Accept both (staff are blocked, rule C05) ·
+Investor → Connections → Send EOI · Owner → Accept EOI · Activity shows every step.
+
+| Module | Purpose |
+|---|---|
+| `marketplace/rules.py` | Bands, upgrade estimates (reuses `core/calculator.py`), criteria match (M02), repayment check |
+| `marketplace/views.py` | What each role may see; identity only after acceptance (M05) |
+| `marketplace/documents.py` | EOI and proposal drafts from the Word templates in `source files/` |
+| `marketplace/orbyte.py` | Mock Orbyte menus, action items and wallet in Orbyte's own API shapes |
+| `marketplace/api.py` | REST endpoints under `/api/greenready` |
+| `marketplace/store.py` | In-memory store standing in for the Supabase tables |
+
+Run the tests with `python -m unittest tests.test_marketplace`.
+
 ## LangGraph boundary
 
 `gmail_reader.read_gmail_messages()` is the direct async Gmail input function;

@@ -6,7 +6,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-GRID_EMISSION_FACTOR_KG_KWH = 0.760
+GRID_EMISSION_FACTOR_KG_KWH = 0.740  # Energy Commission Peninsular grid factor
 TNB_TARIFF_B_MYR_KWH = 0.5068
 HOURS_PER_YEAR = 8_760
 

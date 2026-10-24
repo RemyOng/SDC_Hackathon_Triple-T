@@ -19,6 +19,7 @@ from db.db_manager import (
 )
 from workflow.graph import greenready_graph
 from gmail_reader.api import poller as gmail_poller
+import marketplace
 
 # Configure structured logging
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +43,8 @@ app = FastAPI(
     title="Orbyte GreenReady Webhook Orchestrator",
     lifespan=lifespan,
 )
+marketplace.register(app)
+marketplace.mount_frontend(app)
 
 
 @app.get("/", include_in_schema=False)
